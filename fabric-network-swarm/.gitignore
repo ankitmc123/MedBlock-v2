@@ -37,3 +37,10 @@ app/patient/dist/
 # Hyperledger Fabric Runtime
 runtime/
 data/
+
+# Large binary artifacts
+*.tar.gz
+*.block
+node_modules/
+
+chaincode/ehr.tar.gz

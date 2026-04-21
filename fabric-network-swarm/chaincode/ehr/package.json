@@ -1,7 +1,7 @@
 {
   "name": "ehr-chaincode",
-  "version": "1.0.0",
-  "description": "EHR Chaincode",
+  "version": "2.0.0",
+  "description": "EHR Chaincode MedBlock-v2",
   "main": "index.js",
   "engineStrict": true,
   "author": "Ankit",

@@ -11,6 +11,7 @@ services:
     environment:
       - COUCHDB_USER=admin
       - COUCHDB_PASSWORD=adminpw
+      - NODENAME=127.0.0.1
     ports:
       - 7984:5984
     networks:
@@ -56,6 +57,7 @@ services:
       - /srv/fabric-network-swarm/mychannel.block:/etc/hyperledger/fabric/mychannel.block
       - /srv/fabric-network-swarm/ehr.tar.gz:/etc/hyperledger/fabric/ehr.tar.gz
       - /srv/fabric-network-swarm/app/backend/connection.json:/etc/hyperledger/fabric/connection.json
+      - /srv/fabric-network-swarm/data/peer0:/var/hyperledger/production
 
     ports:
       - 7051:7051

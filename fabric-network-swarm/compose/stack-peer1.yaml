@@ -11,6 +11,7 @@ services:
     environment:
       - COUCHDB_USER=admin
       - COUCHDB_PASSWORD=adminpw
+      - NODENAME=127.0.0.1
     ports:
       - 8984:5984
     networks:
@@ -18,7 +19,7 @@ services:
     deploy:
       placement:
         constraints:
-          - node.labels.role == worker2
+          - node.role == worker
 
   peer1:
     image: hyperledger/fabric-peer:2.5
@@ -40,8 +41,6 @@ services:
       - CORE_PEER_LISTENADDRESS=0.0.0.0:8051
 
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer1.org1.example.com:8051
-      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.org1.example.com:7051
-
       - CORE_PEER_LOCALMSPID=Org1MSP
       - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
 
@@ -55,9 +54,6 @@ services:
       - /srv/fabric-network-swarm/crypto-config/peerOrganizations/org1.example.com/peers/peer1.org1.example.com/msp:/etc/hyperledger/fabric/msp
       - /srv/fabric-network-swarm/crypto-config/peerOrganizations/org1.example.com/peers/peer1.org1.example.com/tls:/etc/hyperledger/fabric/tls
       - /srv/fabric-network-swarm/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp:/etc/hyperledger/fabric/admin_msp
-      - /srv/fabric-network-swarm/mychannel.block:/etc/hyperledger/fabric/mychannel.block
-      - /srv/fabric-network-swarm/ehr.tar.gz:/etc/hyperledger/fabric/ehr.tar.gz
-      - /srv/fabric-network-swarm/app/backend/connection.json:/etc/hyperledger/fabric/connection.json
 
     ports:
       - 8051:8051
@@ -71,4 +67,4 @@ services:
     deploy:
       placement:
         constraints:
-          - node.labels.role == worker2
+          - node.role == worker

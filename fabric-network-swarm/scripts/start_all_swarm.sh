@@ -37,8 +37,8 @@ echo "--- 3. Generating Artifacts (Local) ---"
 export PATH=$PATH:/home/ankit/fabric-network/fabric-samples/bin
 export FABRIC_CFG_PATH=/home/ankit/fabric-network/fabric-samples/config
 
-echo "Packaging chaincode..."
-peer lifecycle chaincode package "$ROOT_DIR/ehr.tar.gz" --path "$ROOT_DIR/chaincode/ehr" --lang node --label ehr_1.0
+echo "Packaging chaincode v2.0..."
+peer lifecycle chaincode package "$ROOT_DIR/ehr.tar.gz" --path "$ROOT_DIR/chaincode/ehr" --lang node --label ehr_2.0
 
 export CORE_PEER_LOCALMSPID=Org1MSP
 export CORE_PEER_MSPCONFIGPATH="$ROOT_DIR/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp"
@@ -115,7 +115,7 @@ install_cc_if_needed() {
     local peer_id="$1"
     local label="$2"
     local INSTALLED=$(docker exec -e CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/admin_msp \
-        "$peer_id" peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_1.0" || true)
+        "$peer_id" peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_2.0" || true)
     if [[ -n "$INSTALLED" ]]; then
         echo "  ✅ $label: chaincode already installed, skipping."
         return 0
@@ -188,13 +188,13 @@ echo "--- 7. Finalizing Chaincode Lifecycle ---"
 PEER0_ID=$(docker ps -q -f name=ehrswarm-peer0_peer0)
 install_cc_if_needed "$PEER0_ID" "peer0 (PC1)"
 
-PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_1.0" | cut -d' ' -f3 | tr -d ',' || true)
+PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_2.0" | cut -d' ' -f3 | tr -d ',' || true)
 if [[ -z "$PACKAGE_ID" ]]; then
     echo "Installing chaincode on peer0 (first time)..."
     INSTALL_OUTPUT=$(peer lifecycle chaincode install "$ROOT_DIR/ehr.tar.gz" 2>&1 || true)
     echo "$INSTALL_OUTPUT"
     PACKAGE_ID=$(echo "$INSTALL_OUTPUT" | grep "Package ID:" | cut -d' ' -f3 | tr -d ',' || true)
-    PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_1.0" | cut -d' ' -f3 | tr -d ',' || true)
+    PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_2.0" | cut -d' ' -f3 | tr -d ',' || true)
 fi
 
 if [[ -z "$PACKAGE_ID" ]]; then
@@ -209,7 +209,7 @@ ssh -o BatchMode=yes "$PC2_USER@$PC2_IP" bash <<'REMOTE'
     PEER1_ID=$(docker ps -q -f name=ehrswarm-peer1_peer1)
     [[ -z "$PEER1_ID" ]] && { echo "peer1 not found, skipping CC install"; exit 0; }
     ALREADY=$(docker exec -e CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/admin_msp \
-        "$PEER1_ID" peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_1.0" || true)
+        "$PEER1_ID" peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_2.0" || true)
     if [[ -n "$ALREADY" ]]; then
         echo "  ✅ peer1: chaincode already installed, skipping."
     else
@@ -226,7 +226,7 @@ ssh -o BatchMode=yes "$PC3_USER@$PC3_IP" bash <<'REMOTE'
     PEER2_ID=$(docker ps -q -f name=ehrswarm-peer2_peer2)
     [[ -z "$PEER2_ID" ]] && { echo "peer2 not found, skipping CC install"; exit 0; }
     ALREADY=$(docker exec -e CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/admin_msp \
-        "$PEER2_ID" peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_1.0" || true)
+        "$PEER2_ID" peer lifecycle chaincode queryinstalled 2>/dev/null | grep "ehr_2.0" || true)
     if [[ -n "$ALREADY" ]]; then
         echo "  ✅ peer2: chaincode already installed, skipping."
     else
@@ -237,7 +237,7 @@ ssh -o BatchMode=yes "$PC3_USER@$PC3_IP" bash <<'REMOTE'
     fi
 REMOTE
 
-echo "Approving & Committing chaincode..."
+echo "Approving & Committing chaincode v1.0..."
 peer lifecycle chaincode approveformyorg -o localhost:7050 --channelID mychannel --name ehr --version 1.0 \
     --package-id "$PACKAGE_ID" --sequence 1 --tls \
     --cafile "$ROOT_DIR/crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls/ca.crt" \
@@ -250,7 +250,7 @@ peer lifecycle chaincode commit -o localhost:7050 --channelID mychannel --name e
 
 echo "--- 8. Starting Backend & Frontends ---"
 # Automated Dependency Check
-for APP_DIR in app/backend app/manager app/billing app/inventory app/patient; do
+for APP_DIR in app/backend app/manager app/employee app/patient; do
     if [ ! -d "$ROOT_DIR/$APP_DIR/node_modules" ]; then
         echo "Installing dependencies for $APP_DIR..."
         cd "$ROOT_DIR/$APP_DIR" && npm install && cd -
@@ -261,9 +261,6 @@ sudo fuser -k 3000/tcp || true
 sudo fuser -k 3001/tcp || true
 sudo fuser -k 3002/tcp || true
 sudo fuser -k 3003/tcp || true
-sudo fuser -k 3004/tcp || true
-sudo fuser -k 5174/tcp || true
-sudo fuser -k 4100/tcp || true
 
 echo "Importing wallets into the backend..."
 bash "$SCRIPTS_DIR/import_wallet.sh"
