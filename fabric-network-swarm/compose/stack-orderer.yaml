@@ -27,12 +27,15 @@ services:
       - /home/ankit/fabric-network/fabric-network-swarm/channel-artifacts/genesis.block:/var/hyperledger/orderer/genesis.block
       - /home/ankit/fabric-network/fabric-network-swarm/crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/msp:/var/hyperledger/orderer/msp
       - /home/ankit/fabric-network/fabric-network-swarm/crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls:/var/hyperledger/orderer/tls
+      - /home/ankit/fabric-network/fabric-network-swarm/data/orderer:/var/hyperledger/production
 
     ports:
       - 7050:7050
 
     networks:
-      - fabric-swarm-net
+      fabric-swarm-net:
+        aliases:
+          - orderer.example.com
 
     deploy:
       placement:

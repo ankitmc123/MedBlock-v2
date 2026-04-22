@@ -21,7 +21,9 @@ services:
       - ./fabric-ca/org1:/etc/hyperledger/fabric-ca-server
     container_name: ca_org1
     networks:
-      - fabric-swarm-net
+      fabric-swarm-net:
+        aliases:
+          - ca.org1.example.com
     deploy:
       placement:
         constraints:

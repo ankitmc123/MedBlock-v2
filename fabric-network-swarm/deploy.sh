@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-#  MedBlock v2 — One-Click Full Deployment Script
+#  MedBlock v2 - One-Click Full Deployment Script
 #  Usage:  bash deploy.sh [--skip-seed] [--no-wipe]
 #
 #  Options:
@@ -11,7 +11,7 @@
 # =============================================================================
 set -euo pipefail
 
-# ─── CONFIGURATION ────────────────────────────────────────────────────────────
+# --- CONFIGURATION ------------------------------------------------------------
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$ROOT_DIR/scripts"
 COMPOSE_DIR="$ROOT_DIR/compose"
@@ -30,11 +30,11 @@ FABRIC_CFG="/home/ankit/fabric-network/fabric-samples/config"
 export PATH="$FABRIC_BIN:$PATH"
 export FABRIC_CFG_PATH="$FABRIC_CFG"
 
-# Chaincode config  — bump CC_VERSION + CC_SEQUENCE when you change chaincode
-CC_LABEL="ehr_1.7"
-CC_VERSION="1.7"
+# Chaincode config  - bump CC_VERSION + CC_SEQUENCE when you change chaincode
+CC_LABEL="ehr_2.1"
+CC_VERSION="2.1"
 CC_SEQUENCE="2"     # Must be incremented each time code changes
-CC_PACKAGE="$ROOT_DIR/ehr_v1.7.tar.gz"
+CC_PACKAGE="$ROOT_DIR/ehr_v2.1.tar.gz"
 
 # Ports
 BACKEND_PORT=3000
@@ -52,7 +52,7 @@ export CORE_PEER_ADDRESS="localhost:7051"
 ORDERER_CA="$ROOT_DIR/crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls/ca.crt"
 PEER0_TLS="$ROOT_DIR/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt"
 
-# ─── FLAGS ────────────────────────────────────────────────────────────────────
+# --- FLAGS --------------------------------------------------------------------
 SKIP_SEED=false
 NO_WIPE=false
 APPS_ONLY=false
@@ -73,10 +73,10 @@ for arg in "$@"; do
     esac
 done
 
-# ─── HELPERS ──────────────────────────────────────────────────────────────────
-log()  { echo -e "\n\033[1;34m▶ $*\033[0m"; }
-ok()   { echo -e "  \033[1;32m✅ $*\033[0m"; }
-warn() { echo -e "  \033[1;33m⚠️  $*\033[0m"; }
+# --- HELPERS ------------------------------------------------------------------
+log()  { echo -e "\n\033[1;34m> $*\033[0m"; }
+ok()   { echo -e "  \033[1;32mOK $*\033[0m"; }
+warn() { echo -e "  \033[1;33mWARN  $*\033[0m"; }
 
 wait_for_peer() {
     local label="$1" ssh_target="${2:-}" timeout=120 elapsed=0
@@ -88,7 +88,7 @@ wait_for_peer() {
             RUNNING=$(ssh -o BatchMode=yes "$ssh_target" "docker ps -q -f name=\"$label\"" 2>/dev/null || true)
         fi
         [[ -n "$RUNNING" ]] && { ok "$label is up."; return 0; }
-        [[ $elapsed -ge $timeout ]] && { warn "$label did not start in ${timeout}s — continuing anyway."; return 1; }
+        [[ $elapsed -ge $timeout ]] && { warn "$label did not start in ${timeout}s - continuing anyway."; return 1; }
         sleep 5; elapsed=$((elapsed+5))
         echo "    ... ${elapsed}s elapsed"
     done
@@ -116,20 +116,22 @@ for attempt in 1 2 3; do
     [[ -z "\$ID" ]] && { echo "  $label container not running on remote."; sleep 10; continue; }
     # Copy the genesis block into the container (stack YAML may not mount it)
     docker cp "$block_path" "\$ID:/tmp/mychannel.block" 2>/dev/null || true
+    # Also inject the chaincode package just in case bind-mount failed
+    docker cp "/srv/fabric-network-swarm/ehr.tar.gz" "\$ID:/etc/hyperledger/fabric/ehr.tar.gz" 2>/dev/null || true
     OUT=\$(docker exec -e CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/admin_msp \
         "\$ID" peer channel join -b /tmp/mychannel.block 2>&1)
     echo "\$OUT"
-    echo "\$OUT" | grep -q "Successfully submitted" && { echo "✅ $label joined."; exit 0; }
-    echo "\$OUT" | grep -qiE "already exists|LedgerID" && { echo "✅ $label already in channel."; exit 0; }
+    echo "\$OUT" | grep -q "Successfully submitted" && { echo "OK $label joined."; exit 0; }
+    echo "\$OUT" | grep -qiE "already exists|LedgerID" && { echo "OK $label already in channel."; exit 0; }
     sleep 10
 done
-echo "⚠️ $label join failed (non-fatal)."
+echo "WARN $label join failed (non-fatal)."
 REMOTE
 }
 
-# ─── STEP 0: APPS ONLY MODE ──────────────────────────────────────────────────
+# --- STEP 0: APPS ONLY MODE --------------------------------------------------
 if $APPS_ONLY; then
-    log "APPS ONLY MODE — Restarting frontends and backend"
+    log "APPS ONLY MODE - Restarting frontends and backend"
     for PORT in $BACKEND_PORT $MANAGER_PORT $EMPLOYEE_PORT $INVENTORY_PORT $PATIENT_PORT; do
         fuser -k "${PORT}/tcp" 2>/dev/null || true
     done
@@ -141,7 +143,7 @@ if $APPS_ONLY; then
     exit 0
 fi
 
-# ─── STEP 1: STOP EVERYTHING ─────────────────────────────────────────────────
+# --- STEP 1: STOP EVERYTHING -------------------------------------------------
 log "STEP 1: Stopping all services"
 for PORT in $BACKEND_PORT $MANAGER_PORT $EMPLOYEE_PORT $INVENTORY_PORT $PATIENT_PORT; do
     fuser -k "${PORT}/tcp" 2>/dev/null || true
@@ -155,7 +157,7 @@ docker stack rm ehrswarm-ca ehrswarm-orderer ehrswarm-peer0 ehrswarm-peer1 ehrsw
 echo "  Waiting for stacks to remove (15s)..."
 sleep 15
 
-# ─── STEP 2: WIPE DATA ───────────────────────────────────────────────────────
+# --- STEP 2: WIPE DATA -------------------------------------------------------
 if ! $NO_WIPE; then
     log "STEP 2: Wiping ledger data"
     docker run --rm -v "$ROOT_DIR/data":/data alpine sh -c \
@@ -176,7 +178,7 @@ else
     log "STEP 2: Skipping data wipe (--no-wipe)"
 fi
 
-# ─── STEP 3: IPFS ────────────────────────────────────────────────────────────
+# --- STEP 3: IPFS ------------------------------------------------------------
 log "STEP 3: Starting IPFS"
 mkdir -p "$RUNTIME_DIR"
 ipfs config Addresses.Gateway /ip4/0.0.0.0/tcp/8080 2>/dev/null || true
@@ -185,17 +187,17 @@ echo $! >"$RUNTIME_DIR/ipfs.pid"
 sleep 4
 ok "IPFS daemon started."
 
-# ─── STEP 4: FABRIC INFRASTRUCTURE ───────────────────────────────────────────
+# --- STEP 4: FABRIC INFRASTRUCTURE -------------------------------------------
 log "STEP 4: Preparing artifacts and deploying the Fabric stack"
 mkdir -p "$ROOT_DIR/data/ca" "$ROOT_DIR/data/orderer" \
          "$ROOT_DIR/data/peer0" "$ROOT_DIR/data/couchdb0" \
          "$ROOT_DIR/data/peer1" "$ROOT_DIR/data/couchdb1" \
          "$ROOT_DIR/data/peer2" "$ROOT_DIR/data/couchdb2"
 
-# ── 4a: Package chaincode FIRST so bind-mounts exist when peers start ──
+# -- 4a: Package chaincode FIRST so bind-mounts exist when peers start --
 log "STEP 4a: Packaging chaincode (must exist before peer stacks deploy)"
 # Pull required builder image
-docker pull hyperledger/fabric-nodeenv:2.5 2>/dev/null || warn "fabric-nodeenv pull failed — may cause slow first install"
+docker pull hyperledger/fabric-nodeenv:2.5 2>/dev/null || warn "fabric-nodeenv pull failed - may cause slow first install"
 
 peer lifecycle chaincode package "$CC_PACKAGE" \
     --path "$ROOT_DIR/chaincode/ehr" \
@@ -205,23 +207,23 @@ peer lifecycle chaincode package "$CC_PACKAGE" \
 cp "$CC_PACKAGE" "$ROOT_DIR/ehr.tar.gz"
 ok "Chaincode packaged → $(basename "$CC_PACKAGE") and ehr.tar.gz"
 
-# ── 4b: Deploy CA and Orderer ─────────────────────────────────────────
+# -- 4b: Deploy CA and Orderer -----------------------------------------
 log "STEP 4b: Deploying CA and Orderer"
 docker stack deploy -c "$COMPOSE_DIR/stack-ca.yaml"      ehrswarm-ca
 docker stack deploy -c "$COMPOSE_DIR/stack-orderer.yaml" ehrswarm-orderer
 echo "  Waiting 30s for orderer to initialize..."
 sleep 30
 
-# ── 4c: Create channel block ──────────────────────────────────────────
+# -- 4c: Create channel block ------------------------------------------
 peer channel create \
     -o localhost:7050 \
     -c mychannel \
     -f "$ROOT_DIR/channel-artifacts/mychannel.tx" \
     --outputBlock "$ROOT_DIR/mychannel.block" \
     --tls --cafile "$ORDERER_CA" \
-    2>/dev/null || warn "Channel block already exists — using existing mychannel.block"
+    2>/dev/null || warn "Channel block already exists - using existing mychannel.block"
 
-# ── 4d: Sync ALL required files to workers BEFORE deploying their peer stacks ──
+# -- 4d: Sync ALL required files to workers BEFORE deploying their peer stacks --
 # (Docker Swarm validates bind-mounts on the host where the container runs)
 log "STEP 5: Syncing artifacts to worker nodes (before peer stacks start)"
 for PC_INFO in "$PC2_USER@$PC2_IP" "$PC3_USER@$PC3_IP"; do
@@ -239,7 +241,7 @@ for PC_INFO in "$PC2_USER@$PC2_IP" "$PC3_USER@$PC3_IP"; do
     # Create /srv symlink so stack bind-mounts resolve (stack YAMLs use /srv/fabric-network-swarm/...)
     ssh -o BatchMode=yes "$PC_INFO" \
         "sudo ln -sfn $PC_ROOT /srv/fabric-network-swarm" \
-        2>/dev/null || warn "Could not create /srv symlink on $PC_INFO — bind mounts may fail"
+        2>/dev/null || warn "Could not create /srv symlink on $PC_INFO - bind mounts may fail"
 
     scp -o BatchMode=yes -r "$ROOT_DIR/crypto-config" \
         "$PC_INFO:$PC_ROOT/"                              2>/dev/null || warn "crypto-config sync failed for $PC_INFO"
@@ -247,7 +249,7 @@ for PC_INFO in "$PC2_USER@$PC2_IP" "$PC3_USER@$PC3_IP"; do
         "$PC_INFO:$PC_ROOT/compose/"                      2>/dev/null || true
     scp -o BatchMode=yes "$ROOT_DIR/mychannel.block" \
         "$PC_INFO:$PC_ROOT/"                              2>/dev/null || true
-    # ⚠️  Critical: ehr.tar.gz must exist on worker nodes for peer bind-mounts
+    # WARN  Critical: ehr.tar.gz must exist on worker nodes for peer bind-mounts
     scp -o BatchMode=yes "$ROOT_DIR/ehr.tar.gz" \
         "$PC_INFO:$PC_ROOT/"                              2>/dev/null || warn "ehr.tar.gz sync failed for $PC_INFO"
     scp -o BatchMode=yes "$ROOT_DIR/app/backend/connection.json" \
@@ -256,12 +258,12 @@ done
 ok "Worker sync complete."
 
 
-# ── 4e: Now deploy peer stacks — all bind-mount sources exist on every node ──
+# -- 4e: Now deploy peer stacks - all bind-mount sources exist on every node --
 docker stack deploy -c "$COMPOSE_DIR/stack-peer0.yaml" ehrswarm-peer0
 docker stack deploy -c "$COMPOSE_DIR/stack-peer1.yaml" ehrswarm-peer1
 docker stack deploy -c "$COMPOSE_DIR/stack-peer2.yaml" ehrswarm-peer2
 
-# ─── STEP 6: JOIN CHANNEL ────────────────────────────────────────────────────
+# --- STEP 6: JOIN CHANNEL ----------------------------------------------------
 log "STEP 6: Joining peers to channel"
 
 # Helper: map Docker Swarm hostname to SSH target
@@ -282,7 +284,7 @@ wait_for_service() {
     while true; do
         STATE=$(docker service ps "$svc" --format '{{.CurrentState}}' 2>/dev/null | head -1)
         [[ "$STATE" == Running* ]] && { ok "$svc is running."; return 0; }
-        [[ $elapsed -ge $timeout ]] && { warn "$svc not running after ${timeout}s — skipping."; return 1; }
+        [[ $elapsed -ge $timeout ]] && { warn "$svc not running after ${timeout}s - skipping."; return 1; }
         sleep 5; elapsed=$((elapsed+5))
         echo "    ... ${elapsed}s (state: ${STATE:-pending})"
     done
@@ -314,9 +316,9 @@ wait_for_service "ehrswarm-peer0_peer0" && join_peer_to_channel "ehrswarm-peer0_
 wait_for_service "ehrswarm-peer1_peer1" && join_peer_to_channel "ehrswarm-peer1_peer1" "peer1"
 wait_for_service "ehrswarm-peer2_peer2" && join_peer_to_channel "ehrswarm-peer2_peer2" "peer2"
 
-# ─── STEP 7: CHAINCODE LIFECYCLE ─────────────────────────────────────────────
+# --- STEP 7: CHAINCODE LIFECYCLE ---------------------------------------------
 log "STEP 7: Committing chaincode to channel ($CC_LABEL)"
-# Chaincode was already packaged in step 4a — just install and commit
+# Chaincode was already packaged in step 4a - just install and commit
 echo "  Waiting 15s for peers to stabilize before chaincode install..."
 sleep 15
 
@@ -361,7 +363,7 @@ ok "Chaincode committed: $CC_LABEL Sequence $CC_SEQUENCE"
 log "STEP 7b: Importing identities into wallet"
 bash "$SCRIPTS_DIR/import_wallet.sh" 2>/dev/null || warn "import_wallet.sh failed (check manually)"
 
-# ─── STEP 8: START APPS ──────────────────────────────────────────────────────
+# --- STEP 8: START APPS ------------------------------------------------------
 log "STEP 8: Starting backend and frontend apps"
 
 # Install npm deps if needed
@@ -380,7 +382,7 @@ sleep 1
 
 bash "$SCRIPTS_DIR/start_app.sh"
 
-# ─── STEP 9: SEED DATA ───────────────────────────────────────────────────────
+# --- STEP 9: SEED DATA -------------------------------------------------------
 if ! $SKIP_SEED; then
     log "STEP 9: Seeding dummy data"
     echo "  Waiting 15s for backend to fully start..."
@@ -391,17 +393,17 @@ else
     log "STEP 9: Skipping seed (--skip-seed)"
 fi
 
-# ─── DONE ─────────────────────────────────────────────────────────────────────
+# --- DONE ---------------------------------------------------------------------
 echo ""
-echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║         🏥 MedBlock v2 — System Ready                           ║"
-echo "╠══════════════════════════════════════════════════════════════════╣"
-printf "║  Manager  UI  → http://%-37s ║\n" "$PC1_IP:$MANAGER_PORT"
-printf "║  Pharmacist   → http://%-37s ║\n" "$PC1_IP:$EMPLOYEE_PORT  (Identity: ph_alice)"
-printf "║  Inventory    → http://%-37s ║\n" "$PC1_IP:$INVENTORY_PORT  (Identity: inv_bob)"
-printf "║  Patient  UI  → http://%-37s ║\n" "$PC1_IP:$PATIENT_PORT  (Identity: pat001)"
-printf "║  Backend API  → http://%-37s ║\n" "$PC1_IP:$BACKEND_PORT"
-printf "║  IPFS Gateway → http://%-37s ║\n" "$PC1_IP:8080/ipfs"
-echo "╠══════════════════════════════════════════════════════════════════╣"
-echo "║  Logs: runtime/backend.log  runtime/manager.log etc.            ║"
-echo "╚══════════════════════════════════════════════════════════════════╝"
+echo "+------------------------------------------------------------------╗"
+echo "|         H MedBlock v2 - System Ready                           |"
+echo "+------------------------------------------------------------------+"
+printf "|  Manager  UI  → http://%-37s |\n" "$PC1_IP:$MANAGER_PORT"
+printf "|  Pharmacist   → http://%-37s |\n" "$PC1_IP:$EMPLOYEE_PORT  (Identity: ph_alice)"
+printf "|  Inventory    → http://%-37s |\n" "$PC1_IP:$INVENTORY_PORT  (Identity: inv_bob)"
+printf "|  Patient  UI  → http://%-37s |\n" "$PC1_IP:$PATIENT_PORT  (Identity: pat001)"
+printf "|  Backend API  → http://%-37s |\n" "$PC1_IP:$BACKEND_PORT"
+printf "|  IPFS Gateway → http://%-37s |\n" "$PC1_IP:8080/ipfs"
+echo "+------------------------------------------------------------------+"
+echo "|  Logs: runtime/backend.log  runtime/manager.log etc.            |"
+echo "+------------------------------------------------------------------+"

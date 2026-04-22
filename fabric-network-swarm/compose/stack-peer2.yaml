@@ -19,7 +19,7 @@ services:
     deploy:
       placement:
         constraints:
-          - node.role == worker
+          - node.labels.role == worker3
 
   peer2:
     image: hyperledger/fabric-peer:2.5
@@ -54,12 +54,17 @@ services:
       - /srv/fabric-network-swarm/crypto-config/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/msp:/etc/hyperledger/fabric/msp
       - /srv/fabric-network-swarm/crypto-config/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/tls:/etc/hyperledger/fabric/tls
       - /srv/fabric-network-swarm/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp:/etc/hyperledger/fabric/admin_msp
+      - /srv/fabric-network-swarm/mychannel.block:/etc/hyperledger/fabric/mychannel.block
+      - /srv/fabric-network-swarm/ehr.tar.gz:/etc/hyperledger/fabric/ehr.tar.gz
+      - /srv/fabric-network-swarm/data/peer2:/var/hyperledger/production
 
     ports:
       - 9051:9051
 
     networks:
-      - fabric-swarm-net
+      fabric-swarm-net:
+        aliases:
+          - peer2.org1.example.com
 
     depends_on:
       - couchdb2
@@ -67,4 +72,4 @@ services:
     deploy:
       placement:
         constraints:
-          - node.role == worker
+          - node.labels.role == worker3

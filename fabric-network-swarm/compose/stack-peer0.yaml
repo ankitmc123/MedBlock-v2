@@ -63,7 +63,9 @@ services:
       - 7051:7051
 
     networks:
-      - fabric-swarm-net
+      fabric-swarm-net:
+        aliases:
+          - peer0.org1.example.com
 
     depends_on:
       - couchdb0

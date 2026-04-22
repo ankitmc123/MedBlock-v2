@@ -21,6 +21,7 @@ On all machines:
 ```bash
 sudo tailscale up
 tailscale ip -4
+sudo ufw allow in on tailscale0
 ```
 
 From PC1:
@@ -67,7 +68,7 @@ On PC1:
 
 ```bash
 docker network ls | grep fabric-swarm-net
-docker network create --driver overlay --attachable fabric-swarm-net
+docker network create --driver overlay --attachable --opt com.docker.network.driver.mtu=1200 fabric-swarm-net
 ```
 
 ## Step 5: Redeploy Services
@@ -113,3 +114,5 @@ If volumes were lost:
 - missing volume source path on a worker
 - Tailscale IP changed and workers rejoined with stale manager IP
 - worker not actually reachable by SSH or Swarm traffic
+- **Missing Persistent Volume for Orderer**: Ensure `stack-orderer.yaml` has a volume mount for `/var/hyperledger/production` to avoid losing channel state on restart.
+- **Overlay MTU Mismatch**: Default MTU 1500 is too large for Tailscale (1280). Use MTU 1200 for overlay networks.

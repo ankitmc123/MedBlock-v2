@@ -125,12 +125,14 @@ class PharmacyContract extends Contract {
 
     // --- NEW: Get Access Control List for a Patient ---
     async getAccessList(ctx, patientId) {
-        const actingId = ctx.clientIdentity.getID();
         const role = await this._getRole(ctx);
+        const alias = await this._getAlias(ctx);
+        const patientLookup = await ctx.stub.getState(`ALIAS_${alias}_PATIENT`);
+        const isOwner = (patientLookup && patientLookup.toString() === patientId);
 
-        // Only the patient themselves or a manager can view acccess list
-        if (role !== 'manager' && !actingId.includes(patientId)) {
-            throw new Error('Access Denied: Only the patient can view their access list');
+        // Only the patient themselves or a manager can view access list
+        if (role !== 'manager' && !isOwner) {
+            throw new Error('Access Denied: Only the patient or manager can view the access list');
         }
 
         const data = await ctx.stub.getState(`PATIENT_${patientId}`);
@@ -174,11 +176,15 @@ class PharmacyContract extends Contract {
     }
 
     async getPatientBills(ctx, patientId) {
-        const actingId = ctx.clientIdentity.getID();
         const role = await this._getRole(ctx);
+        const alias = await this._getAlias(ctx);
+        const patientLookup = await ctx.stub.getState(`ALIAS_${alias}_PATIENT`);
+        const isOwner = (patientLookup && patientLookup.toString() === patientId);
 
         // Access Control
-        if (role !== 'manager' && role !== 'billing' && !actingId.includes(patientId)) {
+        if (role !== 'manager' && role !== 'billing' && !isOwner) {
+            // Check manual access control (matching full ID)
+            const actingId = ctx.clientIdentity.getID();
             const authorized = await this._checkAccess(ctx, patientId, actingId);
             if (!authorized) throw new Error('Access Denied: You are not authorized to view these records');
         }
@@ -203,11 +209,14 @@ class PharmacyContract extends Contract {
     // --- Access Control (Managed by Patient) ---
 
     async grantAccess(ctx, requesterId) {
-        const patientId = ctx.clientIdentity.getID();
-        
-        const data = await ctx.stub.getState(`PATIENT_${patientId}`);
-        if (!data || data.length === 0) throw new Error('Registration required: You must be a registered patient to manage access');
+        const alias = await this._getAlias(ctx);
+        const patientLookup = await ctx.stub.getState(`ALIAS_${alias}_PATIENT`);
+        if (!patientLookup || patientLookup.length === 0) {
+            throw new Error('Registration required: You must be a registered patient to manage access');
+        }
+        const patientId = patientLookup.toString();
 
+        const data = await ctx.stub.getState(`PATIENT_${patientId}`);
         const patient = JSON.parse(data.toString());
         if (!patient.accessControl.includes(requesterId)) {
             patient.accessControl.push(requesterId);
@@ -218,8 +227,11 @@ class PharmacyContract extends Contract {
     }
 
     async revokeAccess(ctx, requesterId) {
-        const patientId = ctx.clientIdentity.getID();
-        
+        const alias = await this._getAlias(ctx);
+        const patientLookup = await ctx.stub.getState(`ALIAS_${alias}_PATIENT`);
+        if (!patientLookup || patientLookup.length === 0) return 'No profile found';
+        const patientId = patientLookup.toString();
+
         const data = await ctx.stub.getState(`PATIENT_${patientId}`);
         if (!data || data.length === 0) return 'No profile found';
 

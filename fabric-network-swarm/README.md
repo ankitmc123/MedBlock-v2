@@ -96,6 +96,8 @@ bash scripts/swarm_status.sh
 ├── crypto-config/        # Fabric Network Identities & Certificates
 ├── scripts/              # Operational & Maintenance Scripts
 └── docs/                 # Detailed Technical Runbooks
+    ├── DEPLOYMENT_AND_RECOVERY.md  # 📘 MASTER GUIDE (Start Here)
+    └── 10-recovery-runbook.md
 ```
 
 ---
